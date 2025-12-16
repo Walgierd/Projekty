@@ -1,26 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
+using System.Windows.Forms; 
 
 namespace PhotoPix
 {
-    class Program
+    static class Program
     {
-        
-        [DllImport(@"C:\Users\trela\Desktop\Projekty\Asembler\PhotoPix\PhotoPix\x64\Debug\PixAsm.dll")]
-        static extern long MyProc1(long a, long b);
-
-        static void Main(string[] args)
+        [STAThread]
+        static void Main()
         {
-            long x = 5, y = 3;
-            long retVal = MyProc1(x, y); 
-
-            Console.Write("Moja pierwsza wartość obliczona w asm to: ");
-            Console.WriteLine(retVal);
-            Console.ReadLine();
+          
+            System.Windows.Forms.Application.EnableVisualStyles();
+            System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
+            System.Windows.Forms.Application.Run(new Form1());
         }
     }
 }
