@@ -2,8 +2,6 @@
 
 PhotoPix is a Windows desktop application designed to apply a pixelation effect to images. Its primary purpose is to demonstrate and compare the performance of different backend libraries—one written in C++ and another in hand-optimized x64 Assembly (MASM)—called from a C# .NET frontend.
 
-![PhotoPix Screenshot](https://i.imgur.com/your-screenshot.png) <!-- Placeholder: Replace with a real screenshot URL if you have one -->
-
 ## Features
 
 -   **Load Images**: Supports common image formats like JPG, PNG, and BMP.
