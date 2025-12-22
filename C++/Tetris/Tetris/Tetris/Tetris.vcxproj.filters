@@ -36,4 +36,7 @@
       <Filter>Pliki zasobów</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+  </ItemGroup>
 </Project>
