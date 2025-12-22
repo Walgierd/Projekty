@@ -1,0 +1,6 @@
+﻿{
+  "smtp_server": "smtp.your-domain.com",
+  "smtp_port": 587,
+  "email": "your-email@your-domain.com",
+  "password": "your-app-password"
+}
