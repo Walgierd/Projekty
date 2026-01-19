@@ -1,26 +1,26 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging; // Do zapisu
+using System.Drawing.Imaging;
 using System.Windows.Forms;
 
 namespace PhotoPix
 {
     public partial class Form1 : Form
     {
-        // === ZMIENNE ===
         private Bitmap originalImage = null;
         private Bitmap resultImage = null;
         private ImageProcessor processor = new ImageProcessor();
 
-        // === KONTROLKI ===
         private GroupBox grpOptions;
         private Button btnLoad, btnProcess, btnSave;
         private RadioButton rbCpp, rbAsm;
-        private NumericUpDown numThreads, numPixelSize;
+        private NumericUpDown numThreads;
+        private TrackBar trkPixelSize;
+        private Label lblPixelInfo;
+        private ComboBox cmbAlgorithm;
         private Label lblStatus;
 
-        // Kontrolki układu (TableLayoutPanel gwarantuje równość)
         private TableLayoutPanel mainLayout;
         private PictureBox picOriginal;
         private PictureBox picResult;
@@ -32,23 +32,20 @@ namespace PhotoPix
 
         private void InitializeCustomGUI()
         {
-            // Ustawienia głównego okna
-            this.Text = "PhotoPix - Porównanie";
-            this.Size = new Size(1200, 800);
-            this.MinimumSize = new Size(900, 600);
+            this.Text = "PhotoPix - Porownanie";
+            this.Size = new Size(1250, 800);
+            this.MinimumSize = new Size(950, 600);
             this.BackColor = Color.WhiteSmoke;
 
-            // 1. PANEL GÓRNY (OPCJE)
             grpOptions = new GroupBox();
             grpOptions.Text = "Panel Sterowania";
             grpOptions.Dock = DockStyle.Top;
-            grpOptions.Height = 110; // Troszkę wyższy dla wygody
+            grpOptions.Height = 110; 
             this.Controls.Add(grpOptions);
 
-            // Przyciski
             btnLoad = CreateButton("1. Wczytaj", 20, 30, btnLoad_Click);
             btnProcess = CreateButton("2. Przetwarzaj", 130, 30, btnProcess_Click);
-            btnProcess.Font = new Font(this.Font, FontStyle.Bold); // Wyróżnienie
+            btnProcess.Font = new Font(this.Font, FontStyle.Bold); 
             btnSave = CreateButton("3. Zapisz", 240, 30, btnSave_Click);
             btnSave.Enabled = false;
 
@@ -56,54 +53,70 @@ namespace PhotoPix
             grpOptions.Controls.Add(btnProcess);
             grpOptions.Controls.Add(btnSave);
 
-            // Wybór Biblioteki
             rbCpp = new RadioButton() { Text = "C++ DLL", Location = new Point(360, 30), Checked = true, AutoSize = true };
             rbAsm = new RadioButton() { Text = "ASM x64", Location = new Point(360, 55), AutoSize = true };
             grpOptions.Controls.Add(rbCpp);
             grpOptions.Controls.Add(rbAsm);
 
-            // Parametry
-            CreateParamControl("Wątki:", 450, 30, out numThreads, 1, 64, Environment.ProcessorCount);
-            CreateParamControl("Piksel:", 450, 60, out numPixelSize, 2, 200, 16);
+            CreateParamControl("Watki:", 450, 30, out numThreads, 1, 64, Environment.ProcessorCount);
+            
+            Label lblP = new Label() { Text = "Rozdzieczosc:", Location = new Point(450, 63), AutoSize = true };
+            grpOptions.Controls.Add(lblP);
 
-            // Status
-            lblStatus = new Label() { Text = "Gotowy.", Location = new Point(580, 45), AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.DarkBlue };
+            trkPixelSize = new TrackBar();
+            trkPixelSize.Location = new Point(530, 60);
+            trkPixelSize.Size = new Size(130, 45);
+            trkPixelSize.Minimum = 5;
+            trkPixelSize.Maximum = 200;
+            trkPixelSize.Value = 100; 
+            trkPixelSize.TickStyle = TickStyle.None;
+            trkPixelSize.Scroll += (s, ev) => { lblPixelInfo.Text = $"{trkPixelSize.Value} blokow"; };
+            grpOptions.Controls.Add(trkPixelSize);
+
+            lblPixelInfo = new Label() { Text = $"{trkPixelSize.Value} blokow", Location = new Point(670, 63), AutoSize = true };
+            grpOptions.Controls.Add(lblPixelInfo);
+
+            Label lblAlgo = new Label() { Text = "Algorytm:", Location = new Point(530, 33), AutoSize = true };
+            grpOptions.Controls.Add(lblAlgo);
+
+            cmbAlgorithm = new ComboBox();
+            cmbAlgorithm.Location = new Point(600, 30);
+            cmbAlgorithm.Width = 100;
+            cmbAlgorithm.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbAlgorithm.Items.AddRange(new object[] { "Srednia", "Mediana", "Losowy" });
+            cmbAlgorithm.SelectedIndex = 0;
+            grpOptions.Controls.Add(cmbAlgorithm);
+
+            lblStatus = new Label() { Text = "Gotowy.", Location = new Point(720, 35), AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.DarkBlue };
             grpOptions.Controls.Add(lblStatus);
 
-
-            // 2. GŁÓWNY UKŁAD (TABLE LAYOUT) - To gwarantuje równe połówki!
             mainLayout = new TableLayoutPanel();
             mainLayout.Dock = DockStyle.Fill;
             mainLayout.ColumnCount = 2;
             mainLayout.RowCount = 1;
-            // Ustawiamy obie kolumny na dokładnie 50%
             mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             this.Controls.Add(mainLayout);
 
-            // Upewniamy się, że panel opcji jest na samej górze
             this.Controls.SetChildIndex(grpOptions, 0);
 
-            // --- LEWA STRONA (Oryginał) ---
             Panel leftPanel = new Panel() { Dock = DockStyle.Fill, Padding = new Padding(10) };
-            Label lblOrig = new Label() { Text = "ORYGINAŁ", Dock = DockStyle.Top, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(this.Font, FontStyle.Bold), Height = 30 };
+            Label lblOrig = new Label() { Text = "ORYGINAL", Dock = DockStyle.Top, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(this.Font, FontStyle.Bold), Height = 30 };
             picOriginal = new PictureBox() { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black, BorderStyle = BorderStyle.Fixed3D };
 
             leftPanel.Controls.Add(picOriginal);
             leftPanel.Controls.Add(lblOrig);
-            mainLayout.Controls.Add(leftPanel, 0, 0); // Kolumna 0
+            mainLayout.Controls.Add(leftPanel, 0, 0);
 
-            // --- PRAWA STRONA (Wynik) ---
             Panel rightPanel = new Panel() { Dock = DockStyle.Fill, Padding = new Padding(10) };
             Label lblRes = new Label() { Text = "WYNIK (PO)", Dock = DockStyle.Top, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(this.Font, FontStyle.Bold), Height = 30 };
             picResult = new PictureBox() { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black, BorderStyle = BorderStyle.Fixed3D };
 
             rightPanel.Controls.Add(picResult);
             rightPanel.Controls.Add(lblRes);
-            mainLayout.Controls.Add(rightPanel, 1, 0); // Kolumna 1
+            mainLayout.Controls.Add(rightPanel, 1, 0); 
         }
 
-        // === METODY POMOCNICZE UI (Dla czytelności) ===
         private Button CreateButton(string text, int x, int y, EventHandler handler)
         {
             Button btn = new Button();
@@ -123,8 +136,6 @@ namespace PhotoPix
             grpOptions.Controls.Add(nud);
         }
 
-        // === LOGIKA APLIKACJI ===
-
         private void btnLoad_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
@@ -140,7 +151,6 @@ namespace PhotoPix
 
                     picOriginal.Image = originalImage;
 
-                    // Reset wyniku
                     if (picResult.Image != null) picResult.Image = null;
                     if (resultImage != null) { resultImage.Dispose(); resultImage = null; }
 
@@ -155,10 +165,12 @@ namespace PhotoPix
             if (originalImage == null) { MessageBox.Show("Wczytaj obraz!"); return; }
 
             int threads = (int)numThreads.Value;
-            int pixelSize = (int)numPixelSize.Value;
+            int blockCount = trkPixelSize.Value;
+            int pixelSize = Math.Max(2, originalImage.Width / blockCount); // Dynamic size based on width and desired resolution
             bool useAsm = rbAsm.Checked;
+            
+            PixelationAlgorithm algo = (PixelationAlgorithm)cmbAlgorithm.SelectedIndex;
 
-            // Kopia dla wyniku
             if (resultImage != null) resultImage.Dispose();
             resultImage = new Bitmap(originalImage);
 
@@ -168,7 +180,7 @@ namespace PhotoPix
                 this.Cursor = Cursors.WaitCursor;
                 sw.Start();
 
-                processor.ProcessImage(resultImage, threads, pixelSize, useAsm);
+                processor.ProcessImage(resultImage, threads, pixelSize, useAsm, algo);
 
                 sw.Stop();
 
@@ -176,11 +188,12 @@ namespace PhotoPix
                 btnSave.Enabled = true;
 
                 string lib = useAsm ? "ASM x64" : "C++";
-                lblStatus.Text = $"Czas: {sw.ElapsedMilliseconds} ms | {lib} | Wątki: {threads}";
+                string algoName = cmbAlgorithm.SelectedItem.ToString();
+                lblStatus.Text = $"Czas: {sw.ElapsedMilliseconds} ms | {lib} | {algoName} | Watki: {threads}";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Błąd: {ex.Message}");
+                MessageBox.Show($"Blad: {ex.Message}");
             }
             finally
             {

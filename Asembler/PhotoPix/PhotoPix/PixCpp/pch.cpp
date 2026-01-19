@@ -1,5 +1,5 @@
-// pch.cpp: source file corresponding to the pre-compiled header
+﻿// pch.cpp: plik źródłowy odpowiadający prekompilowanemu nagłówkowi
 
 #include "pch.h"
 
-// When you are using pre-compiled headers, this source file is necessary for compilation to succeed.
+// W przypadku korzystania z prekompilowanych nagłówków ten plik źródłowy jest niezbędny, aby kompilacja powiodła się.

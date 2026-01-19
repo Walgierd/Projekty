@@ -1,3 +1,5 @@
 LIBRARY PixAsm
 EXPORTS 
-	PixelateAsm
+	PixelateAsm_Average
+	PixelateAsm_Median
+	PixelateAsm_Random

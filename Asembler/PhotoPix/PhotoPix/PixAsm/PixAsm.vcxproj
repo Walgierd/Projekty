@@ -19,10 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="PixAsm.asm" />
+    <None Include="PixAsm.def" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="PixAsm.def" />
+    <MASM Include="PixAsm.asm" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

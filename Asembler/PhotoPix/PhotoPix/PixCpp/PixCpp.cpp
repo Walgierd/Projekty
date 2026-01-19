@@ -1,88 +1,151 @@
 ﻿/*
-Imię Nazwisko: [Twoje Imię]
-Data: 2023/2024
-Temat: Biblioteka C++ wykonująca efekt pixelowania (mozaiki).
-Opis: Algorytm oblicza średnią koloru w blokach NxN i nadpisuje piksele.
+Imię Nazwisko: Olivier Trela
+Data:           19.01.2026
+Temat:          Biblioteka C++ wykonująca efekt pixelowania (mozaiki).
+Wersja:         2.0
+Opis:           Algorytmy: Średnia (Average), Mediana (Median), Losowy (Random).
 */
 
-#include "pch.h"     
-#include <cstdint>    
-#include <algorithm>  
+#include "pch.h"
+#include <cstdint>
+#include <vector>
+#include <algorithm>
+#include <random>
 
 #define DLL_EXPORT extern "C" __declspec(dllexport)
 
+// --- Struktury i funkcje pomocnicze ---
+
+struct PixelColor {
+    uint8_t b, g, r;
+};
+
+// Sortowanie po luminancji dla mediany
+bool comparePixels(const PixelColor& a, const PixelColor& b) {
+    return (0.299 * a.r + 0.587 * a.g + 0.114 * a.b) < (0.299 * b.r + 0.587 * b.g + 0.114 * b.b);
+}
+
+// --- Implementacje ---
+
 /*
-Parametry:
-data      - Wskaźnik do pierwszego bajtu danych obrazu (format BGRA 32-bit)
-width     - Szerokość obrazu w pikselach
-height    - Wysokość obrazu w pikselach
-stride    - Liczba bajtów na jeden wiersz obrazu (może zawierać padding!)
-pixelSize - Rozmiar bloku (np. 16 dla kwadratu 16x16)
-startRow  - Indeks wiersza, od którego ten wątek ma zacząć
-endRow    - Indeks wiersza, na którym ten wątek ma skończyć
+Nazwa: PixelateCpp_Average
+Opis:  Oblicza średnią arytmetyczną kolorów w bloku.
 */
-
-DLL_EXPORT void PixelateCpp(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
+DLL_EXPORT void PixelateCpp_Average(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
 {
+    for (int y = startRow; y < endRow; y += pixelSize) {
+        for (int x = 0; x < width; x += pixelSize) {
+            long sumB = 0, sumG = 0, sumR = 0;
+            int count = 0;
+            int blockH = (std::min)(pixelSize, height - y);
+            int blockW = (std::min)(pixelSize, width - x);
 
-    for (int y = startRow; y < endRow; y += pixelSize)
-    {
-        
-        for (int x = 0; x < width; x += pixelSize)
-        {
-            // Zmienne na sumę kolorów w bloku
-            long sumB = 0; // Blue
-            long sumG = 0; // Green
-            long sumR = 0; // Red
-            int count = 0; // Liczba przetworzonych pikseli (ważne przy krawędziach)
-
-            // Obliczamy granice aktualnego bloku (żeby nie wyjść poza obraz)
-            int blockHeight = (pixelSize < height - y) ? pixelSize : (height - y);
-            int blockWidth = (pixelSize < width - x) ? pixelSize : (width - x);
-
-            // --- KROK 1: Sumowanie kolorów w bloku ---
-            for (int by = 0; by < blockHeight; by++)
-            {
-                // Obliczamy wskaźnik na początek wiersza wewnątrz bloku
-                // data + (numer wiersza * długość wiersza)
-                uint8_t* rowPtr = data + (y + by) * stride;
-
-                for (int bx = 0; bx < blockWidth; bx++)
-                {
-                    // Wskaźnik na konkretny piksel.
-                    // (x + bx) * 4, bo każdy piksel ma 4 bajty (B, G, R, A)
-                    int xOffset = (x + bx) * 4;
-
-                    sumB += rowPtr[xOffset + 0];
-                    sumG += rowPtr[xOffset + 1];
-                    sumR += rowPtr[xOffset + 2];
-                    // Alpha (offset + 3) pomijamy w obliczaniu średniej
-
+            for (int by = 0; by < blockH; by++) {
+                uint8_t* row = data + (y + by) * stride;
+                for (int bx = 0; bx < blockW; bx++) {
+                    int offset = (x + bx) * 4;
+                    sumB += row[offset + 0];
+                    sumG += row[offset + 1];
+                    sumR += row[offset + 2];
                     count++;
                 }
             }
 
-            // Zabezpieczenie przed dzieleniem przez zero (teoretycznie niemożliwe, ale dobre dla stabilności)
             if (count == 0) continue;
-
-            // Obliczamy średnie
             uint8_t avgB = (uint8_t)(sumB / count);
             uint8_t avgG = (uint8_t)(sumG / count);
             uint8_t avgR = (uint8_t)(sumR / count);
 
-            // --- KROK 2: Zapisywanie średniego koloru do całego bloku ---
-            for (int by = 0; by < blockHeight; by++)
-            {
-                uint8_t* rowPtr = data + (y + by) * stride;
+            for (int by = 0; by < blockH; by++) {
+                uint8_t* row = data + (y + by) * stride;
+                for (int bx = 0; bx < blockW; bx++) {
+                    int offset = (x + bx) * 4;
+                    row[offset + 0] = avgB;
+                    row[offset + 1] = avgG;
+                    row[offset + 2] = avgR;
+                }
+            }
+        }
+    }
+}
 
-                for (int bx = 0; bx < blockWidth; bx++)
-                {
-                    int xOffset = (x + bx) * 4;
+/*
+Nazwa: PixelateCpp_Median
+Opis:  Wybiera kolor będący medianą (środkową wartością) w bloku.
+*/
+DLL_EXPORT void PixelateCpp_Median(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
+{
+    std::vector<PixelColor> blockPixels;
+    // Rezerwacja pamięci dla wydajności (max rozmiar bloku)
+    blockPixels.reserve(pixelSize * pixelSize);
 
-                    rowPtr[xOffset + 0] = avgB;
-                    rowPtr[xOffset + 1] = avgG;
-                    rowPtr[xOffset + 2] = avgR;
-                    // Alpha zostawiamy bez zmian lub ustawiamy na 255
+    for (int y = startRow; y < endRow; y += pixelSize) {
+        for (int x = 0; x < width; x += pixelSize) {
+            blockPixels.clear();
+            int blockH = (std::min)(pixelSize, height - y);
+            int blockW = (std::min)(pixelSize, width - x);
+
+            for (int by = 0; by < blockH; by++) {
+                uint8_t* row = data + (y + by) * stride;
+                for (int bx = 0; bx < blockW; bx++) {
+                    int offset = (x + bx) * 4;
+                    blockPixels.push_back({ row[offset + 0], row[offset + 1], row[offset + 2] });
+                }
+            }
+
+            if (blockPixels.empty()) continue;
+            
+            size_t medianIndex = blockPixels.size() / 2;
+            std::nth_element(blockPixels.begin(), blockPixels.begin() + medianIndex, blockPixels.end(), comparePixels);
+            PixelColor medianColor = blockPixels[medianIndex];
+
+            for (int by = 0; by < blockH; by++) {
+                uint8_t* row = data + (y + by) * stride;
+                for (int bx = 0; bx < blockW; bx++) {
+                    int offset = (x + bx) * 4;
+                    row[offset + 0] = medianColor.b;
+                    row[offset + 1] = medianColor.g;
+                    row[offset + 2] = medianColor.r;
+                }
+            }
+        }
+    }
+}
+
+/*
+Nazwa: PixelateCpp_Random
+Opis:  Wybiera losowy piksel z danego bloku i wypełnia nim cały blok.
+*/
+DLL_EXPORT void PixelateCpp_Random(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
+{
+    // Inicjalizacja generatora losowego (raz na wywołanie wątku)
+    std::mt19937 rng(std::random_device{}());
+
+    for (int y = startRow; y < endRow; y += pixelSize) {
+        for (int x = 0; x < width; x += pixelSize) {
+            int blockH = (std::min)(pixelSize, height - y);
+            int blockW = (std::min)(pixelSize, width - x);
+
+            if (blockW <= 0 || blockH <= 0) continue;
+
+            std::uniform_int_distribution<int> randX(0, blockW - 1);
+            std::uniform_int_distribution<int> randY(0, blockH - 1);
+            int chosenX = randX(rng);
+            int chosenY = randY(rng);
+
+            // Pobranie koloru wylosowanego piksela
+            uint8_t* row = data + (y + chosenY) * stride;
+            int offset = (x + chosenX) * 4;
+            PixelColor randomColor = { row[offset + 0], row[offset + 1], row[offset + 2] };
+
+            // Zapisanie koloru do całego bloku
+            for (int by = 0; by < blockH; by++) {
+                uint8_t* writeRow = data + (y + by) * stride;
+                for (int bx = 0; bx < blockW; bx++) {
+                    int writeOffset = (x + bx) * 4;
+                    writeRow[writeOffset + 0] = randomColor.b;
+                    writeRow[writeOffset + 1] = randomColor.g;
+                    writeRow[writeOffset + 2] = randomColor.r;
                 }
             }
         }
