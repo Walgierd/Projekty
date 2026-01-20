@@ -1,6 +1,6 @@
 ﻿/*
 Imię Nazwisko: Olivier Trela
-Data:           19.01.2026
+Data:           20.01.2026
 Temat:          Biblioteka C++ wykonująca efekt pixelowania (mozaiki).
 Wersja:         2.0
 Opis:           Algorytmy: Średnia (Average), Mediana (Median), Losowy (Random).
@@ -14,22 +14,19 @@ Opis:           Algorytmy: Średnia (Average), Mediana (Median), Losowy (Random)
 
 #define DLL_EXPORT extern "C" __declspec(dllexport)
 
-// --- Struktury i funkcje pomocnicze ---
-
 struct PixelColor {
     uint8_t b, g, r;
 };
 
-// Sortowanie po luminancji dla mediany
 bool comparePixels(const PixelColor& a, const PixelColor& b) {
     return (0.299 * a.r + 0.587 * a.g + 0.114 * a.b) < (0.299 * b.r + 0.587 * b.g + 0.114 * b.b);
 }
 
-// --- Implementacje ---
-
 /*
 Nazwa: PixelateCpp_Average
 Opis:  Oblicza średnią arytmetyczną kolorów w bloku.
+Wejście: Data pointer, wymiary, rozmiar bloku, zakres.
+Wyjście: void (modyfikacja bufora)
 */
 DLL_EXPORT void PixelateCpp_Average(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
 {
@@ -72,11 +69,12 @@ DLL_EXPORT void PixelateCpp_Average(uint8_t* data, int width, int height, int st
 /*
 Nazwa: PixelateCpp_Median
 Opis:  Wybiera kolor będący medianą (środkową wartością) w bloku.
+Wejście: Data pointer, wymiary, rozmiar bloku, zakres.
+Wyjście: void (modyfikacja bufora)
 */
 DLL_EXPORT void PixelateCpp_Median(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
 {
     std::vector<PixelColor> blockPixels;
-    // Rezerwacja pamięci dla wydajności (max rozmiar bloku)
     blockPixels.reserve(pixelSize * pixelSize);
 
     for (int y = startRow; y < endRow; y += pixelSize) {
@@ -115,10 +113,11 @@ DLL_EXPORT void PixelateCpp_Median(uint8_t* data, int width, int height, int str
 /*
 Nazwa: PixelateCpp_Random
 Opis:  Wybiera losowy piksel z danego bloku i wypełnia nim cały blok.
+Wejście: Data pointer, wymiary, rozmiar bloku, zakres.
+Wyjście: void (modyfikacja bufora)
 */
 DLL_EXPORT void PixelateCpp_Random(uint8_t* data, int width, int height, int stride, int pixelSize, int startRow, int endRow)
 {
-    // Inicjalizacja generatora losowego (raz na wywołanie wątku)
     std::mt19937 rng(std::random_device{}());
 
     for (int y = startRow; y < endRow; y += pixelSize) {
@@ -133,12 +132,10 @@ DLL_EXPORT void PixelateCpp_Random(uint8_t* data, int width, int height, int str
             int chosenX = randX(rng);
             int chosenY = randY(rng);
 
-            // Pobranie koloru wylosowanego piksela
             uint8_t* row = data + (y + chosenY) * stride;
             int offset = (x + chosenX) * 4;
             PixelColor randomColor = { row[offset + 0], row[offset + 1], row[offset + 2] };
 
-            // Zapisanie koloru do całego bloku
             for (int by = 0; by < blockH; by++) {
                 uint8_t* writeRow = data + (y + by) * stride;
                 for (int bx = 0; bx < blockW; bx++) {

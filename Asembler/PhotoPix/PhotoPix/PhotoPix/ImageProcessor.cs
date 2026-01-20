@@ -1,19 +1,20 @@
 ﻿/*
 Imię Nazwisko: Olivier Trela
-Data:           19.01.2025 
+Data:           20.01.2026
+Temat:          Klasa przetwarzająca obraz.
 Wersja:         2.0
-Opis:           Klasa zarządzająca przetwarzaniem obrazu i wywołująca odpowiednie
-                funkcje z bibliotek DLL (C++ lub ASM) w zależności od wybranego algorytmu.
+Opis:           Zarządza logiką wielowątkową oraz wywołuje odpowiednie biblioteki DLL (C++ lub ASM).
 */
+
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PhotoPix
 {
-    // Enum określający dostępny algorytm pikselacji
     public enum PixelationAlgorithm
     {
         Average,    // Średnia
@@ -23,11 +24,9 @@ namespace PhotoPix
 
     public class ImageProcessor
     {
-        // Ścieżki do bibliotek - wersja Release, x64
-        private const string CppDllPath = "C:\\Users\\trela\\Desktop\\Projekty\\Asembler\\PhotoPix\\PhotoPix\\PhotoPix\\x64\\Debug\\PixCpp.dll";
-        private const string AsmDllPath = "C:\\Users\\trela\\Desktop\\Projekty\\Asembler\\PhotoPix\\PhotoPix\\PhotoPix\\x64\\Debug\\PixAsm.dll";
+        private const string CppDllPath = "C:\\Users\\trela\\Desktop\\Projekty\\Asembler\\PhotoPix\\PhotoPix\\PhotoPix\\x64\\Release\\PixCpp.dll";
+        private const string AsmDllPath = "C:\\Users\\trela\\Desktop\\Projekty\\Asembler\\PhotoPix\\PhotoPix\\PhotoPix\\x64\\Release\\PixAsm.dll";
 
-        // --- IMPORTY FUNKCJI C++ ---
         [DllImport(CppDllPath, EntryPoint = "PixelateCpp_Average", CallingConvention = CallingConvention.Cdecl)]
         private static extern void PixelateCpp_Average(IntPtr data, int w, int h, int s, int p, int sr, int er);
 
@@ -37,7 +36,6 @@ namespace PhotoPix
         [DllImport(CppDllPath, EntryPoint = "PixelateCpp_Random", CallingConvention = CallingConvention.Cdecl)]
         private static extern void PixelateCpp_Random(IntPtr data, int w, int h, int s, int p, int sr, int er);
 
-        // --- IMPORTY FUNKCJI ASM ---
         [DllImport(AsmDllPath, EntryPoint = "PixelateAsm_Average", CallingConvention = CallingConvention.Cdecl)]
         private static extern void PixelateAsm_Average(IntPtr data, int w, int h, int s, int p, int sr, int er);
 
@@ -50,11 +48,19 @@ namespace PhotoPix
 
         /*
         Nazwa: ProcessImage
-        Opis:  Główna metoda przetwarzająca obraz wielowątkowo.
+        Opis:  Wykonuje przetwarzanie obrazu w zadanym zakresie wątków i przy użyciu wybranego algorytmu.
+        Wejście: Bitmap, liczba wątków, rozmiar bloku, tryb (ASM/C++), algorytm
+        Wyjście: Zmodyfikowana bitmapa (przez wskaźnik)
         */
         public void ProcessImage(Bitmap bmp, int threadCount, int pixelSize, bool useAsm, PixelationAlgorithm algorithm)
         {
-            // Blokada pamięci bitmapy
+            int minW, minIO;
+            ThreadPool.GetMinThreads(out minW, out minIO);
+            if (minW < threadCount)
+            {
+                ThreadPool.SetMinThreads(threadCount, minIO);
+            }
+
             BitmapData bmpData = bmp.LockBits(
                 new Rectangle(0, 0, bmp.Width, bmp.Height),
                 ImageLockMode.ReadWrite,
@@ -68,24 +74,19 @@ namespace PhotoPix
                 int stride = bmpData.Stride;
                 IntPtr scan0 = bmpData.Scan0;
 
-                // Obliczanie liczby bloków w pionie
                 int totalBlocksY = (height + pixelSize - 1) / pixelSize;
 
-                // Podział pracy na wątki (dzielimy bloki, nie piksele)
                 Parallel.For(0, threadCount, new ParallelOptions { MaxDegreeOfParallelism = threadCount }, i =>
                 {
-                    // Obliczanie zakresu bloków dla wątku
-                    int startBlock = i * totalBlocksY / threadCount;
-                    int endBlock = (i + 1) * totalBlocksY / threadCount;
+                    int startBlock = (int)((long)i * totalBlocksY / threadCount);
+                    int endBlock = (int)((long)(i + 1) * totalBlocksY / threadCount);
 
-                    // Konwersja na współrzędne pikselowe
                     int startRow = startBlock * pixelSize;
                     int endRow = endBlock * pixelSize;
 
                     if (endRow > height) endRow = height;
                     if (startRow >= endRow) return;
 
-                    // Wybór biblioteki i algorytmu
                     if (useAsm)
                     {
                         switch (algorithm)

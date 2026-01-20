@@ -4,6 +4,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.14.36717.8
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhotoPix", "PhotoPix.csproj", "{FA8D462C-7950-4985-B29D-39A459C628BA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{157BC19A-31E6-4EBA-8951-AE73624C0F8A} = {157BC19A-31E6-4EBA-8951-AE73624C0F8A}
+		{4430E6E1-D9F2-43E1-973B-3B9187F45337} = {4430E6E1-D9F2-43E1-973B-3B9187F45337}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PixAsm", "..\PixAsm\PixAsm.vcxproj", "{157BC19A-31E6-4EBA-8951-AE73624C0F8A}"
 EndProject
@@ -27,8 +31,8 @@ Global
 		{FA8D462C-7950-4985-B29D-39A459C628BA}.Debug|x86.Build.0 = Debug|Any CPU
 		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|x64.ActiveCfg = Release|Any CPU
-		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|x64.Build.0 = Release|Any CPU
+		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|x64.ActiveCfg = Release|x64
+		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|x64.Build.0 = Release|x64
 		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|x86.ActiveCfg = Release|Any CPU
 		{FA8D462C-7950-4985-B29D-39A459C628BA}.Release|x86.Build.0 = Release|Any CPU
 		{157BC19A-31E6-4EBA-8951-AE73624C0F8A}.Debug|Any CPU.ActiveCfg = Debug|x64

@@ -1,7 +1,18 @@
-﻿using System;
+﻿/*
+Imię Nazwisko: Olivier Trela
+Data:           20.01.2026
+Temat:          Graficzny Interfejs Użytkownika dla projektu PhotoPix.
+Wersja:         2.0
+Opis:           Główne okno aplikacji obsługujące interakcję z użytkownikiem,
+                wybór parametrów przetwarzania oraz wyświetlanie wyników.
+*/
+
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace PhotoPix
@@ -13,7 +24,7 @@ namespace PhotoPix
         private ImageProcessor processor = new ImageProcessor();
 
         private GroupBox grpOptions;
-        private Button btnLoad, btnProcess, btnSave;
+        private Button btnLoad, btnProcess, btnSave, btnTest;
         private RadioButton rbCpp, rbAsm;
         private NumericUpDown numThreads;
         private TrackBar trkPixelSize;
@@ -25,11 +36,19 @@ namespace PhotoPix
         private PictureBox picOriginal;
         private PictureBox picResult;
 
+        /*
+        Nazwa: Form1
+        Opis:  Konstruktor głównego okna aplikacji. Inicjalizuje GUI.
+        */
         public Form1()
         {
             InitializeCustomGUI();
         }
 
+        /*
+        Nazwa: InitializeCustomGUI
+        Opis:  Tworzy i konfiguruje elementy interfejsu użytkownika (przyciski, panele, obrazki).
+        */
         private void InitializeCustomGUI()
         {
             this.Text = "PhotoPix - Porownanie";
@@ -40,7 +59,7 @@ namespace PhotoPix
             grpOptions = new GroupBox();
             grpOptions.Text = "Panel Sterowania";
             grpOptions.Dock = DockStyle.Top;
-            grpOptions.Height = 110; 
+            grpOptions.Height = 130; 
             this.Controls.Add(grpOptions);
 
             btnLoad = CreateButton("1. Wczytaj", 20, 30, btnLoad_Click);
@@ -49,9 +68,14 @@ namespace PhotoPix
             btnSave = CreateButton("3. Zapisz", 240, 30, btnSave_Click);
             btnSave.Enabled = false;
 
+            btnTest = CreateButton("TESTUJ", 240, 75, btnTest_Click);
+            btnTest.Font = new Font(this.Font, FontStyle.Bold);
+            btnTest.ForeColor = Color.DarkRed;
+
             grpOptions.Controls.Add(btnLoad);
             grpOptions.Controls.Add(btnProcess);
             grpOptions.Controls.Add(btnSave);
+            grpOptions.Controls.Add(btnTest);
 
             rbCpp = new RadioButton() { Text = "C++ DLL", Location = new Point(360, 30), Checked = true, AutoSize = true };
             rbAsm = new RadioButton() { Text = "ASM x64", Location = new Point(360, 55), AutoSize = true };
@@ -117,6 +141,12 @@ namespace PhotoPix
             mainLayout.Controls.Add(rightPanel, 1, 0); 
         }
 
+        /*
+        Nazwa: CreateButton
+        Opis:  Pomocnicza metoda do tworzenia przycisków.
+        Wejście: string text, int x, int y, EventHandler handler
+        Wyjście: Obiekt Button
+        */
         private Button CreateButton(string text, int x, int y, EventHandler handler)
         {
             Button btn = new Button();
@@ -128,6 +158,11 @@ namespace PhotoPix
             return btn;
         }
 
+        /*
+        Nazwa: CreateParamControl
+        Opis:  Pomocnicza metoda do tworzenia kontrolek numerycznych z etykietami.
+        Wejście/Wyjście: out NumericUpDown nud - utworzona kontrolka
+        */
         private void CreateParamControl(string labelText, int x, int y, out NumericUpDown nud, int min, int max, int val)
         {
             Label lbl = new Label() { Text = labelText, Location = new Point(x, y + 3), AutoSize = true };
@@ -136,6 +171,10 @@ namespace PhotoPix
             grpOptions.Controls.Add(nud);
         }
 
+        /*
+        Nazwa: btnLoad_Click
+        Opis:  Obsługa zdarzenia kliknięcia przycisku "Wczytaj". Otwiera okno dialogowe wyboru pliku.
+        */
         private void btnLoad_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
@@ -160,19 +199,31 @@ namespace PhotoPix
             }
         }
 
+        /*
+        Nazwa: btnProcess_Click
+        Opis:  Obsługa zdarzenia kliknięcia przycisku "Przetwarzaj". Uruchamia przetwarzanie obrazu.
+        */
         private void btnProcess_Click(object sender, EventArgs e)
         {
             if (originalImage == null) { MessageBox.Show("Wczytaj obraz!"); return; }
 
             int threads = (int)numThreads.Value;
             int blockCount = trkPixelSize.Value;
-            int pixelSize = Math.Max(2, originalImage.Width / blockCount); // Dynamic size based on width and desired resolution
+            int pixelSize = Math.Max(2, originalImage.Width / blockCount);
             bool useAsm = rbAsm.Checked;
-            
             PixelationAlgorithm algo = (PixelationAlgorithm)cmbAlgorithm.SelectedIndex;
 
+            RunProcessing(originalImage, threads, pixelSize, useAsm, algo);
+        }
+
+        /*
+        Nazwa: RunProcessing
+        Opis:  Metoda wykonująca właściwe przetwarzanie obrazu z pomiarem czasu.
+        */
+        private void RunProcessing(Bitmap src, int threads, int pixelSize, bool useAsm, PixelationAlgorithm algo)
+        {
             if (resultImage != null) resultImage.Dispose();
-            resultImage = new Bitmap(originalImage);
+            resultImage = new Bitmap(src);
 
             Stopwatch sw = new Stopwatch();
             try
@@ -188,12 +239,17 @@ namespace PhotoPix
                 btnSave.Enabled = true;
 
                 string lib = useAsm ? "ASM x64" : "C++";
-                string algoName = cmbAlgorithm.SelectedItem.ToString();
+                string algoName = algo.ToString();
                 lblStatus.Text = $"Czas: {sw.ElapsedMilliseconds} ms | {lib} | {algoName} | Watki: {threads}";
+            }
+            catch (AggregateException aggEx)
+            {
+                var realError = aggEx.InnerException;
+                MessageBox.Show($"Błąd krytyczny (Aggregate): {realError.Message}\nTyp: {realError.GetType().Name}\n\n{realError.StackTrace}");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Blad: {ex.Message}");
+                MessageBox.Show($"Błąd: {ex.Message}\nTyp: {ex.GetType().Name}\nStack: {ex.StackTrace}");
             }
             finally
             {
@@ -201,6 +257,106 @@ namespace PhotoPix
             }
         }
 
+        /*
+        Nazwa: btnTest_Click
+        Opis:  Obsługa przycisku "TESTUJ". Uruchamia automatyczną serię testów wydajnościowych.
+        */
+        private async void btnTest_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Najpierw wczytaj obraz do testów!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            grpOptions.Enabled = false;
+            
+            int[] threadCounts = { 1, 2, 4, 8, 12, 16, 32, 64 };
+            PixelationAlgorithm[] algorithms = { 
+                PixelationAlgorithm.Average, 
+                PixelationAlgorithm.Median, 
+                PixelationAlgorithm.Random 
+            };
+            
+            int blockCount = trkPixelSize.Value;
+            int pixelSize = Math.Max(2, originalImage.Width / blockCount);
+            string resolutionStr = $"{originalImage.Width}x{originalImage.Height}";
+
+            string outputFile = "test.txt";
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    bool fileExists = File.Exists(outputFile);
+
+                    using (StreamWriter sw = new StreamWriter(outputFile, true))
+                    {
+                        if (!fileExists)
+                        {
+                            sw.WriteLine("Watki;Biblioteka;Algorytm;Rozdzielczosc;CzasSredni_ms");
+                        }
+
+                        foreach (int threads in threadCounts)
+                        {
+                            for (int lib = 0; lib < 2; lib++)
+                            {
+                                bool useAsm = (lib == 1);
+
+                                foreach (var algo in algorithms)
+                                {
+                                    double totalTime = 0;
+                                    int iterations = 5;
+
+                                    for (int i = 0; i < iterations; i++)
+                                    {
+                                        using (Bitmap testBmp = new Bitmap(originalImage))
+                                        {
+                                            string libNameStatus = useAsm ? "ASM" : "CPP";
+                                            Invoke(new Action(() => {
+                                                lblStatus.Text = $"TEST: T={threads} {libNameStatus} {algo} Iter={i+1}/{iterations}";
+                                            }));
+
+                                            System.GC.Collect();
+                                            System.GC.WaitForPendingFinalizers();
+
+                                            Stopwatch watch = Stopwatch.StartNew();
+                                            processor.ProcessImage(testBmp, threads, pixelSize, useAsm, algo);
+                                            watch.Stop();
+
+                                            totalTime += watch.Elapsed.TotalMilliseconds;
+                                        }
+                                    }
+                                    
+                                    double avgTime = totalTime / iterations;
+                                    string libName = useAsm ? "ASM" : "CPP";
+                                    
+                                    string logLine = $"{threads};{libName};{algo};{resolutionStr};{avgTime:F4}";
+                                    sw.WriteLine(logLine);
+                                    sw.Flush();
+                                }
+                            }
+                        }
+                    }
+                });
+
+                MessageBox.Show($"Testy zakończone!\nWyniki dopisano do: {Path.GetFullPath(outputFile)}", "Sukces");
+                lblStatus.Text = "Testy zakonczone pomyślnie.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Błąd podczas testowania: {ex.Message}", "Błąd");
+            }
+            finally
+            {
+                grpOptions.Enabled = true;
+            }
+        }
+
+        /*
+        Nazwa: btnSave_Click
+        Opis:  Obsługa przycisku "Zapisz". Pozwala zapisać przetworzony obraz na dysku.
+        */
         private void btnSave_Click(object sender, EventArgs e)
         {
             if (resultImage == null) return;

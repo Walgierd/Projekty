@@ -1,8 +1,32 @@
+; -----------------------------------------------------------------------------
+; Imiê Nazwisko: Olivier Trela
+; Data:           20.01.2026
+; Temat:          Biblioteka ASM (x64) wykonuj¹ca efekt pixelowania.
+; Wersja:         2.0
+; Opis:           Procedury asemblerowe wykorzystuj¹ce instrukcje x64 i SIMD.
+; -----------------------------------------------------------------------------
+
 .code
 
 ; -----------------------------------------------------------------------------
-; Procedure: PixelateAsm_Average
+; Procedure: _DllMainCRTStartup
+; Opis:      Entry point dla DLL (wymagane przy braku bibliotek standardowych).
 ; -----------------------------------------------------------------------------
+public _DllMainCRTStartup
+_DllMainCRTStartup proc
+    mov rax, 1
+    ret
+_DllMainCRTStartup endp
+
+; -----------------------------------------------------------------------------
+; Procedure: PixelateAsm_Average
+; Opis:      Oblicza œredni¹ arytmetyczn¹ kolorów w bloku pikseli.
+; Wejœcie:   RCX (Data Ptr), RDX (Width), R8 (Height), R9 (Stride)
+;            Stack: pixelSize, startRow, endRow
+; Wyjœcie:   Modyfikuje bufor danych w miejscu (RCX).
+; Rejestry:  RAX, RBX, RCX, RDX, RSI, RDI, R8-R15 (zgodnie z konwencj¹ x64)
+; -----------------------------------------------------------------------------
+public PixelateAsm_Average
 PixelateAsm_Average proc
     ; Prologue
     push rbp
@@ -121,7 +145,6 @@ CalcAvg:
     
     or eax, 0FF000000h
 
-    ; Use simple scalar mov to EAX for writing later (avoid XMM alignment issues)
     mov r11d, eax ; Save color in R11D
 
     xor rax, rax        
@@ -193,7 +216,13 @@ PixelateAsm_Average endp
 
 ; -----------------------------------------------------------------------------
 ; Procedure: PixelateAsm_Random
+; Opis:      Ustawia losowy kolor z bloku dla ca³ego bloku.
+; Wejœcie:   RCX (Data Ptr), RDX (Width), R8 (Height), R9 (Stride)
+;            Stack: pixelSize, startRow, endRow
+; Wyjœcie:   Modyfikuje bufor danych w miejscu.
+; Rejestry:  RAX, RBX, RCX, RDX, RSI, RDI, XMM0 (do wektoryzacji zapisu)
 ; -----------------------------------------------------------------------------
+public PixelateAsm_Random
 PixelateAsm_Random proc
     push rbp
     mov rbp, rsp
@@ -348,7 +377,13 @@ PixelateAsm_Random endp
 
 ; -----------------------------------------------------------------------------
 ; Procedure: PixelateAsm_Median
+; Opis:      Oblicza i ustawia medianê koloru w bloku.
+; Wejœcie:   RCX, RDX, R8, R9
+;            Stack: pixelSize, startRow, endRow
+; Wyjœcie:   Modyfikuje bufor.
+; Rejestry:  Standardowe + u¿ywa stosu do sortowania.
 ; -----------------------------------------------------------------------------
+public PixelateAsm_Median
 PixelateAsm_Median proc
     push rbp
     mov rbp, rsp
